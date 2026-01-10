@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/soham-245/BitTorrent-Client/issues"
   },
-  "homepage": "https://github.com/soham-245/BitTorrent-Client#readme"
+  "homepage": "https://github.com/soham-245/BitTorrent-Client#readme",
+  "dependencies": {
+    "bencode": "^2.0.1"
+  }
 }
