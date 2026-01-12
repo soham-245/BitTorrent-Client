@@ -76,10 +76,59 @@ function parseConnResp(resp) {
   }
 }
 
-function buildAnnounceReq(connId) {
-  // return Buffer
+function buildAnnounceReq(connId, torrent, port=6881) {
+  const buf = Buffer.allocUnsafe(98);
+
+  connId.copy(buf, 0);  // connection id
+
+  buf.writeUInt32BE(1, 8);    // action
+  
+  crypto.randomBytes(4).copy(buf, 12);  // transaction id
+  
+  torrentParser.infoHash(torrent).copy(buf, 16);  // info hash
+  
+  util.genId().copy(buf, 36);   // peerId
+  
+  Buffer.alloc(8).copy(buf, 56);    // downloaded
+  
+  torrentParser.size(torrent).copy(buf, 64);    // left
+  
+  Buffer.alloc(8).copy(buf, 72);    // uploaded
+  
+  buf.writeUInt32BE(0, 80); // event
+  
+  buf.writeUInt32BE(0, 80); // ip address
+  
+  crypto.randomBytes(4).copy(buf, 88);  // key
+  
+  buf.writeInt32BE(-1, 92); // num want
+  
+  buf.writeUInt16BE(port, 96);  // port
+
+  return buf;
 }
 
 function parseAnnounceResp(resp) {
-  // return { peers }
+  function group(iterable, groupSize) {
+    let groups = [];
+    for (let i = 0; i < iterable.length; i += groupSize) {
+      groups.push(iterable.slice(i, i + groupSize));
+    }
+    return groups;
+  }
+
+  return {
+    action: resp.readUInt32BE(0),
+    transactionId: resp.readUInt32BE(4),
+    // interval: resp.readUInt32BE(8),
+    // leechers: resp.readUInt32BE(12),
+    leechers: resp.readUInt32BE(8),
+    seeders: resp.readUInt32BE(12),
+    peers: group(resp.slice(20), 6).map(address => {
+      return {
+        ip: address.slice(0, 4).join('.'),
+        port: address.readUInt16BE(4)
+      }
+    })
+  }
 }
