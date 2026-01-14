@@ -4,7 +4,7 @@ const dgram = require('dgram');
 const Buffer = require('buffer').Buffer;
 const { URL } = require('url');
 const crypto = require('crypto');
-const util = require('./util');
+const util = require('../util');
 const torrentParser = require('./torrent-parser');
 
 let connTransactionId;
