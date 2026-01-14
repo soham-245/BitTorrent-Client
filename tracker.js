@@ -12,36 +12,45 @@ let announceTransactionId;
 
 module.exports.getPeers = (torrent, callback) => {
   const socket = dgram.createSocket('udp4');
-  const trackerUrl = 'udp://tracker.opentrackr.org:1337/announce';  //fixed since earlier wasnt working
+  const trackerUrl = 'udp://tracker.opentrackr.org:1337/announce';  //since earlier tracker down
+  console.log('[CONNECT] sending to tracker:',trackerUrl);
   udpSend(socket, buildConnReq(), trackerUrl); //conn req
   socket.on('message', response => {
     const type = respType(response);
+    console.log('[RECEIVED] parsed type:',type,', length:',response.length);
 
     if (type==='connect') {
-        if (response.readUInt32BE(4) !== connTransactionId.readUInt32BE(0)) {
-            return; // ignore invalid response
-        }
-        const connResp = parseConnResp(response);
+      console.log('[CONNECT] response received');
+      if (response.readUInt32BE(4) !== connTransactionId.readUInt32BE(0)) {
+        console.log('[ERROR] transaction id mismatch');          
+        return; 
+      }
+      const connResp = parseConnResp(response);
 
-        const announceReq = buildAnnounceReq(connResp.connectionId,torrent);
-        udpSend(socket, announceReq, trackerUrl);
+      const announceReq = buildAnnounceReq(connResp.connectionId,torrent);
+      console.log('[ANNOUNCE] sending request');
+      udpSend(socket, announceReq, trackerUrl);
     } 
     else if (type==='announce') {
-      if(response.readUInt32BE(4)!==announceTransactionId.readUInt32BE(0)) return;
-      
+      console.log('[ANNOUNCE] response received');
+      if(response.readUInt32BE(4)!==announceTransactionId.readUInt32BE(0)){
+        console.log('[ERROR] transaction id mismatch');
+        return;
+      }
       const announceResp = parseAnnounceResp(response);
+      console.log('[ANNOUNCE] parsed peers:', announceResp.peers);
       callback(announceResp.peers);
 
       socket.close();
     }
     else if(type==='error'){
-      console.log('Tracker error: ',response.toString('utf8',8));
+      console.error('[TRACKER ERROR]', response.toString('utf8', 8));
       socket.close();
     }
   });
 
   socket.on('error', err => {
-    console.error(`Tracker error: ${err}`);
+    console.error('[SOCKET ERROR]', err.message);
     socket.close();
   });
 };
@@ -89,7 +98,7 @@ function buildAnnounceReq(connId, torrent, port=6881) {
   const buf = Buffer.alloc(98);
   connId.copy(buf, 0);  // conn id
   buf.writeUInt32BE(1, 8);    // action
-  announceTransactionId=crypto.randomBytes(4);  // transc id
+  announceTransactionId=crypto.randomBytes(4);  // txn id
   announceTransactionId.copy(buf,12);
   torrentParser.infoHash(torrent).copy(buf, 16);  // info hash
   util.genId().copy(buf, 36);   // peerId
